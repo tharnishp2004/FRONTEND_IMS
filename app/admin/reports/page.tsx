@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Package } from "lucide-react";
+import { Package, Download, FileText } from "lucide-react";
 import { API_URL } from "@/app/lib/api";
+import { exportAnalyticsReport } from "@/app/lib/exportUtils";
 import Link from "next/link";
 
 export default function ReportsPage() {
@@ -47,13 +48,33 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-4xl font-black text-[#1e1b4b] uppercase tracking-tight">
-          Inventory Reports
-        </h1>
-        <p className="text-slate-500 mt-2 text-lg">
-          View detailed analytics on sales performance and inventory valuation.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-black text-[#1e1b4b] uppercase tracking-tight">
+            Inventory Reports
+          </h1>
+          <p className="text-slate-500 mt-2 text-lg">
+            View detailed analytics on sales performance and inventory valuation.
+          </p>
+        </div>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => exportAnalyticsReport(totalRevenue, totalSales, avgOrder, stockValuation, categories, orders, products, "csv")}
+            className="cursor-pointer flex items-center space-x-2 px-5 py-3 rounded-2xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 font-bold text-xs uppercase tracking-wider shadow-sm transition-all active:scale-95"
+            title="Download Summary Report in CSV format"
+          >
+            <Download className="w-4 h-4 text-[#5a4bfa]" />
+            <span>Download CSV</span>
+          </button>
+          <button
+            onClick={() => exportAnalyticsReport(totalRevenue, totalSales, avgOrder, stockValuation, categories, orders, products, "pdf")}
+            className="cursor-pointer flex items-center space-x-2 px-5 py-3 rounded-2xl bg-[#5a4bfa] text-white hover:bg-[#4939ea] font-bold text-xs uppercase tracking-wider shadow-md shadow-indigo-100 transition-all active:scale-95"
+            title="Download Executive Report in PDF format"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Download PDF</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

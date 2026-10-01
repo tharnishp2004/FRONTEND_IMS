@@ -81,7 +81,7 @@ export default function StaffDashboard() {
             {orders.slice(-4).reverse().map((o: any) => (
               <div key={o.id} className="flex justify-between items-center py-3 border-b border-slate-50">
                 <div>
-                  <p className="font-black text-[#1e1b4b] text-sm">Order #{o.id.slice(0, 8)}</p>
+                  <p className="font-black text-[#1e1b4b] text-sm">Order #{o.id}</p>
                   <p className="text-xs text-[#8b8d98] font-bold">{new Date(o.date).toLocaleDateString()}</p>
                 </div>
                 <span className="font-black text-[#10b981]">{Number(o.totalPrice).toFixed(2)}</span>

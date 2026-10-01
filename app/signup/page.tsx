@@ -7,7 +7,7 @@ import Link from "next/link";
 import { API_URL } from "@/app/lib/api";
 
 export default function SignUpPage() {
-  const [form, setForm] = useState({ name: "", username: "", password: "", confirmPassword: "", role: "viewer" });
+  const [form, setForm] = useState({ name: "", username: "", password: "", confirmPassword: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -26,49 +26,31 @@ export default function SignUpPage() {
 
     setLoading(true);
     try {
-      // Check if username already exists
-      const res = await fetch(`${API_URL}/users`);
-      const users = await res.json();
-      const exists = users.find((u: any) => u.username === form.username);
-      if (exists) {
-        setLoading(false);
-        return setError("Username already taken. Choose another.");
-      }
-
-      // Generate sequential numeric ID
-      const maxId = users.reduce((max: number, u: any) => {
-        const n = parseInt(u.id);
-        return isNaN(n) ? max : Math.max(max, n);
-      }, 0);
-      const nextId = String(maxId + 1);
-
-      // Create user
-      await fetch(`${API_URL}/users`, {
+      const res = await fetch(`${API_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: nextId,
           name: form.name,
           username: form.username,
           password: form.password,
-          role: form.role,
         }),
       });
 
-      setSuccess(true);
-      setTimeout(() => router.push("/login"), 2000);
+      if (res.ok) {
+        setSuccess(true);
+        setTimeout(() => router.push("/login"), 2000);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setError(errData.message || "Failed to create account. Username may already exist.");
+      }
     } catch (err) {
-      setError("Failed to connect. Is the server running?");
+      setError("Failed to connect to the server. Is the backend running?");
     } finally {
       setLoading(false);
     }
   };
 
-  const roles = [
-    { id: "viewer", label: "Viewer", desc: "Read-only access to inventory & reports" },
-    { id: "staff", label: "Staff", desc: "Manage sales, stock entry & orders" },
-    { id: "admin", label: "Admin", desc: "Full system access & user management" },
-  ];
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#171332] relative overflow-hidden font-sans py-12">
@@ -94,7 +76,7 @@ export default function SignUpPage() {
               </div>
               <h2 className="text-3xl font-black tracking-tight mb-2 uppercase">Create Account</h2>
               <p className="text-[10px] font-bold tracking-widest text-[#6b678e] uppercase">
-                Register to access the IMS portal
+                First user becomes Admin · Others get Viewer
               </p>
             </div>
 
@@ -157,24 +139,10 @@ export default function SignUpPage() {
                 </div>
               </div>
 
-              {/* Role Selection */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black tracking-widest text-[#6b678e] uppercase ml-1">Request Role</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {roles.map(r => (
-                    <button key={r.id} type="button" onClick={() => setForm({ ...form, role: r.id })}
-                      className={`p-3 rounded-xl text-center border transition-all ${
-                        form.role === r.id
-                          ? "bg-[#5a4bfa] border-[#5a4bfa] text-white"
-                          : "bg-[#15112c] border-transparent text-[#6b678e] hover:border-[#5a4bfa]/40"
-                      }`}>
-                      <p className="text-xs font-black uppercase tracking-widest">{r.label}</p>
-                    </button>
-                  ))}
-                </div>
-                <p className="text-[10px] text-[#4a4665] font-medium px-1">
-                  {roles.find(r => r.id === form.role)?.desc}
-                </p>
+              {/* Role info banner */}
+              <div className="p-3 rounded-xl bg-[#5a4bfa]/10 border border-[#5a4bfa]/20 text-[#a9a3f7] text-xs font-bold text-center leading-relaxed">
+                🛡️ All new accounts start as <span className="text-white">Admin</span>.<br />
+                Roles can be changed later from the Admin → Users panel.
               </div>
 
               <button type="submit" disabled={loading}

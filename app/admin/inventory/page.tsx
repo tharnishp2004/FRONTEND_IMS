@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Download, FileText } from "lucide-react";
 import { API_URL } from "@/app/lib/api";
+import { exportInventoryReport } from "@/app/lib/exportUtils";
 
 const EMPTY_PRODUCT = { name: "", category: "", price: 0, quantity: 1, expiryDate: "", supplier: "", sku: "" };
 
@@ -52,23 +54,28 @@ export default function InventoryManagementPage() {
     e.preventDefault();
     if (isReadOnly) return;
     try {
+      const productPayload = {
+        name: form.name,
+        category: form.category,
+        price: Number(form.price),
+        quantity: Number(form.quantity),
+        expiryDate: form.expiryDate || null,
+        supplier: form.supplier,
+        sku: form.sku || ("SKU-" + Math.floor(1000 + Math.random() * 9000)),
+      };
+
       if (editingProduct) {
         // UPDATE existing
         await fetch(`${API_URL}/products/${editingProduct.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...editingProduct, ...form }),
+          body: JSON.stringify({ ...editingProduct, ...productPayload }),
         });
       } else {
-        // Compute next sequential ID
-        const maxId = products.reduce((max: number, p: any) => {
-          const n = parseInt(p.id);
-          return isNaN(n) ? max : Math.max(max, n);
-        }, 0);
         await fetch(`${API_URL}/products`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...form, id: String(maxId + 1), sku: form.sku || "SKU-" + String(maxId + 1) }),
+          body: JSON.stringify(productPayload),
         });
       }
       setShowModal(false);
@@ -76,7 +83,7 @@ export default function InventoryManagementPage() {
     } catch (err) { console.error(err); }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string | number) => {
     if (isReadOnly) return;
     if (!confirm("Delete this product permanently?")) return;
     try {
@@ -87,18 +94,38 @@ export default function InventoryManagementPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 relative">
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-4xl font-black text-[#1e1b4b] uppercase tracking-tight">Inventory Management</h1>
           <p className="text-slate-500 mt-2 text-lg">
             {isReadOnly ? "View real-time stock levels." : "View and manage your stock levels."}
           </p>
         </div>
-        {!isReadOnly && (
-          <button onClick={openAdd} className="bg-[#5a4bfa] hover:bg-[#4b3de6] text-white px-6 py-3 rounded-xl font-bold transition-colors shadow-md flex items-center space-x-2">
-            <span>+</span><span>Add Product</span>
+        <div className="flex items-center flex-wrap gap-3">
+          <button
+            onClick={() => exportInventoryReport(products, "csv")}
+            disabled={products.length === 0}
+            className="cursor-pointer flex items-center space-x-2 px-5 py-3 rounded-2xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 font-bold text-xs uppercase tracking-wider shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Download Inventory Stock Report in CSV format"
+          >
+            <Download className="w-4 h-4 text-[#5a4bfa]" />
+            <span>Download CSV</span>
           </button>
-        )}
+          <button
+            onClick={() => exportInventoryReport(products, "pdf")}
+            disabled={products.length === 0}
+            className="cursor-pointer flex items-center space-x-2 px-5 py-3 rounded-2xl bg-[#5a4bfa] text-white hover:bg-[#4939ea] font-bold text-xs uppercase tracking-wider shadow-md shadow-indigo-100 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Download Inventory Stock Report in PDF format"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Download PDF</span>
+          </button>
+          {!isReadOnly && (
+            <button onClick={openAdd} className="cursor-pointer bg-[#1e1b4b] hover:bg-[#2d2966] text-white px-5 py-3 rounded-2xl font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center space-x-2 active:scale-95">
+              <span>+</span><span>Add Product</span>
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 overflow-hidden">
@@ -117,12 +144,12 @@ export default function InventoryManagementPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/50">
-              {products.map((p) => {
+              {products.map((p, index) => {
                 const isLow = p.quantity <= 5;
                 const isOut = p.quantity === 0;
                 return (
                   <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-5 px-4 font-bold text-slate-500 text-sm">{p.id}</td>
+                    <td className="py-5 px-4 font-bold text-slate-500 text-sm">{index + 1}</td>
                     <td className="py-5 px-4 font-black text-[#1e1b4b]">{p.name}</td>
                     <td className="py-5 px-4 font-bold text-slate-500 text-sm">{p.category || "N/A"}</td>
                     <td className="py-5 px-4 font-black text-[#1e1b4b]">{Number(p.price).toFixed(2)}</td>

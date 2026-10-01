@@ -22,11 +22,16 @@ export default function DashboardLayout({
       router.push("/login");
       return;
     }
-    const parsedUser = JSON.parse(storedUser);
-    if (parsedUser.role !== role) {
+    try {
+      const parsedUser = JSON.parse(storedUser);
+      const userRole = (parsedUser.role || "").toLowerCase();
+      if (userRole !== role.toLowerCase()) {
+        router.push("/login");
+      } else {
+        setUser({ ...parsedUser, role: userRole });
+      }
+    } catch {
       router.push("/login");
-    } else {
-      setUser(parsedUser);
     }
   }, [role, router]);
 

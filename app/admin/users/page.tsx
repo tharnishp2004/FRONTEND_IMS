@@ -42,15 +42,10 @@ export default function UserManagementPage() {
           body: JSON.stringify({ ...editingUser, ...form }),
         });
       } else {
-        // Compute next sequential ID
-        const maxId = users.reduce((max: number, u: any) => {
-          const n = parseInt(u.id);
-          return isNaN(n) ? max : Math.max(max, n);
-        }, 0);
         await fetch(`${API_URL}/users`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...form, id: String(maxId + 1) }),
+          body: JSON.stringify(form),
         });
       }
       setShowModal(false);
@@ -58,11 +53,11 @@ export default function UserManagementPage() {
     } catch (err) { console.error(err); }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string | number) => {
     if (!confirm("Are you sure you want to delete this user?")) return;
     try {
       await fetch(`${API_URL}/users/${id}`, { method: "DELETE" });
-      fetchUsers();
+      await fetchUsers();
     } catch (err) { console.error(err); }
   };
 
@@ -98,9 +93,9 @@ export default function UserManagementPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/50">
-              {users.map((u) => (
+              {users.map((u, index) => (
                 <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-4 px-4 font-bold text-slate-500">{u.id}</td>
+                  <td className="py-4 px-4 font-bold text-slate-500">{index + 1}</td>
                   <td className="py-4 px-4 font-black text-[#1e1b4b]">{u.name}</td>
                   <td className="py-4 px-4 font-bold text-slate-500">{u.username}</td>
                   <td className="py-4 px-4">

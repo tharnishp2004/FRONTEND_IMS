@@ -41,7 +41,7 @@ export default function StaffOperationsPage() {
 
   const handleProcessSale = async () => {
     if (!saleProductId) return showMessage("Please select a product.");
-    const product = products.find(p => p.id === saleProductId);
+    const product = products.find(p => String(p.id) === String(saleProductId));
     if (!product) return;
     
     if (product.quantity < saleQuantity) {
@@ -52,7 +52,7 @@ export default function StaffOperationsPage() {
     try {
       // Step 1: Update product stock
       const updatedQuantity = product.quantity - saleQuantity;
-      await fetch(`${API_URL}/products/${saleProductId}`, {
+      await fetch(`${API_URL}/products/${product.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ quantity: updatedQuantity }),
@@ -60,12 +60,10 @@ export default function StaffOperationsPage() {
 
       // Step 2: Record Order
       const newOrder = {
-        id: Date.now().toString(),
-        productId: saleProductId,
-        quantity: saleQuantity,
-        totalPrice: product.price * saleQuantity,
+        productId: Number(product.id),
+        quantity: Number(saleQuantity),
+        totalPrice: Number(product.price) * Number(saleQuantity),
         orderStatus: "COMPLETED",
-        date: new Date().toISOString(),
       };
       await fetch(`${API_URL}/orders`, {
         method: "POST",
@@ -86,13 +84,13 @@ export default function StaffOperationsPage() {
 
   const handleStockEntry = async () => {
     if (!entryProductId) return showMessage("Please select a product.");
-    const product = products.find(p => p.id === entryProductId);
+    const product = products.find(p => String(p.id) === String(entryProductId));
     if (!product) return;
 
     setLoading(true);
     try {
       const updatedQuantity = product.quantity + entryQuantity;
-      await fetch(`${API_URL}/products/${entryProductId}`, {
+      await fetch(`${API_URL}/products/${product.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ quantity: updatedQuantity }),
@@ -117,12 +115,10 @@ export default function StaffOperationsPage() {
     setLoading(true);
     try {
       const newPurchase = {
-        id: Date.now().toString(),
         supplier: purchaseSupplier,
-        productId: purchaseProductId,
-        quantity: purchaseQuantity,
+        productId: Number(purchaseProductId),
+        quantity: Number(purchaseQuantity),
         status: "PENDING",
-        date: new Date().toISOString(),
       };
 
       await fetch(`${API_URL}/purchases`, {
