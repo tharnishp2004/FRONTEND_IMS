@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_URL = process.env.BACKEND_API_URL || "http://localhost:8080/api";
-
 async function forwardRequest(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   try {
     const resolvedParams = await params;
     const path = (resolvedParams.path || []).join("/");
     const url = new URL(request.url);
-    const targetUrl = `${BACKEND_URL}/${path}${url.search}`;
+    const rawBackendUrl = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+    const backendUrl = rawBackendUrl.replace(/\/+$/, "");
+    const targetUrl = `${backendUrl}/${path}${url.search}`;
 
     const headers = new Headers(request.headers);
     headers.delete("host");
+    headers.delete("origin");
 
     const reqInit: RequestInit = {
       method: request.method,
