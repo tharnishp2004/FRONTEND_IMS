@@ -1,8 +1,45 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4f7fb;
-  --foreground: #1e1b4b;
+  --background: #f4f6f4;
+  --foreground: #1c201d;
+
+  /* Palette: Sage Green */
+  --sage-50: #f2f6f3;
+  --sage-100: #e2ede5;
+  --sage-200: #c6dacb;
+  --sage-300: #a1c0a8;
+  --sage-400: #7ba384;
+  --sage-500: #5b8765;
+  --sage-600: #466e50;
+  --sage-700: #385740;
+  --sage-800: #2f4534;
+  --sage-900: #27392c;
+
+  /* Palette: Concrete Grey */
+  --concrete-50: #f6f8f7;
+  --concrete-100: #ecefec;
+  --concrete-200: #dadfda;
+  --concrete-300: #c2c9c3;
+  --concrete-400: #9da69f;
+  --concrete-500: #7b857e;
+  --concrete-600: #606963;
+  --concrete-700: #4c544e;
+  --concrete-800: #343a36;
+  --concrete-900: #1e2220;
+  --concrete-950: #141715;
+
+  /* Palette: Burnt Amber */
+  --burnt-50: #fcf6f1;
+  --burnt-100: #faeadc;
+  --burnt-200: #f4d3b8;
+  --burnt-300: #ebb388;
+  --burnt-400: #de8c54;
+  --burnt-500: #ce682c;
+  --burnt-600: #b95220;
+  --burnt-700: #973f1a;
+  --burnt-800: #7a3419;
+  --burnt-900: #642b17;
 }
 
 @theme inline {
@@ -16,4 +53,31 @@ body {
   background: var(--background);
   color: var(--foreground);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Custom scrollbars with Concrete styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd3cb;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9fa89f;
+}
+
+/* Glassmorphism utility */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }

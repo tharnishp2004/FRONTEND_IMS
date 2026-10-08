@@ -1,111 +1,254 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Package, ShoppingCart, TrendingUp } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import {
+  Boxes,
+  Package,
+  ShoppingCart,
+  TrendingUp,
+  SlidersHorizontal,
+  ArrowRight,
+  AlertTriangle,
+  Clock,
+  Truck,
+  PlusCircle,
+} from "lucide-react";
 import { API_URL } from "@/app/lib/api";
+import { StatCard } from "@/app/components/ui/StatCard";
+import { Badge } from "@/app/components/ui/Badge";
+import { LoadingSpinner } from "@/app/components/ui/LoadingSpinner";
 
 export default function StaffDashboard() {
   const [products, setProducts] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
+  const [purchases, setPurchases] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API_URL}/products`).then(r => r.json()),
-      fetch(`${API_URL}/orders`).then(r => r.json()),
-    ]).then(([p, o]) => {
-      setProducts(p);
-      setOrders(o);
-    }).catch(console.error);
+      fetch(`${API_URL}/products`).then((r) => r.json()).catch(() => []),
+      fetch(`${API_URL}/orders`).then((r) => r.json()).catch(() => []),
+      fetch(`${API_URL}/purchases`).then((r) => r.json()).catch(() => []),
+    ])
+      .then(([p, o, pur]) => {
+        setProducts(Array.isArray(p) ? p : []);
+        setOrders(Array.isArray(o) ? o : []);
+        setPurchases(Array.isArray(pur) ? pur : []);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
-  const totalItems = products.reduce((sum: number, p: any) => sum + p.quantity, 0);
-  const lowStock = products.filter((p: any) => p.quantity <= 5);
+  const totalItems = useMemo(
+    () => products.reduce((sum: number, p: any) => sum + (Number(p.quantity) || 0), 0),
+    [products]
+  );
+  const lowStock = useMemo(
+    () => products.filter((p: any) => Number(p.quantity) <= 5),
+    [products]
+  );
+
+  const getProductName = (id: string | number) => {
+    const p = products.find((pr) => String(pr.id) === String(id));
+    return p ? p.name : `Product #${id}`;
+  };
+
+  if (loading) {
+    return <LoadingSpinner label="Loading Staff Operations Console..." />;
+  }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-4xl font-black text-[#1e1b4b] tracking-tight">Staff Dashboard</h1>
-        <p className="text-slate-500 mt-2 text-lg">Overview of your daily operations.</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[
-          { label: "Total Stock Units", value: totalItems, icon: Package, color: "text-[#5a4bfa]" },
-          { label: "Orders Processed", value: orders.length, icon: ShoppingCart, color: "text-[#10b981]" },
-          { label: "Low Stock Items", value: lowStock.length, icon: TrendingUp, color: "text-orange-500" },
-        ].map((stat, i) => (
-          <div key={i} className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
-            <p className="text-[11px] font-black tracking-widest text-[#8b8d98] uppercase mb-4">{stat.label}</p>
-            <h3 className={`text-4xl font-black ${stat.color}`}>{stat.value}</h3>
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-6 border border-[#dce2de] shadow-xs">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-extrabold text-[#1a1f1c] tracking-tight">
+              Staff Operations Console
+            </h1>
+            <Badge variant="staff">Operations Clearance</Badge>
           </div>
-        ))}
+          <p className="text-xs sm:text-sm text-[#616d65] mt-1 font-medium">
+            Daily inventory workflows: execute sale orders, process physical stock entries, and request supplier requisitions.
+          </p>
+        </div>
+
+        <Link
+          href="/staff/operations"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#3f6549] hover:bg-[#34553d] text-white text-xs font-bold shadow-xs shadow-[#3f6549]/20 transition-all cursor-pointer active:scale-95"
+        >
+          <SlidersHorizontal className="w-4 h-4" />
+          <span>Quick Operations</span>
+        </Link>
       </div>
 
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Total Stock Units"
+          value={totalItems.toLocaleString()}
+          icon={Package}
+          subtitle={`${products.length} registered products`}
+          accentColor="sage"
+        />
+        <StatCard
+          title="Orders Processed"
+          value={orders.length}
+          icon={ShoppingCart}
+          subtitle="Customer fulfillments"
+          accentColor="sage"
+        />
+        <StatCard
+          title="Low Stock Items"
+          value={lowStock.length}
+          icon={AlertTriangle}
+          subtitle="Requires intake attention"
+          accentColor="amber"
+        />
+        <StatCard
+          title="Purchase Orders"
+          value={purchases.length}
+          icon={Truck}
+          subtitle="Supplier procurement records"
+          accentColor="concrete"
+        />
+      </div>
+
+      {/* Quick Action Station (Concrete Slate & Sage Gradient Banner) */}
+      <div className="bg-gradient-to-r from-[#171b19] via-[#222925] to-[#2d3731] rounded-2xl p-6 sm:p-8 text-white shadow-lg border border-[#313c35] flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#8eb097]">
+            Workflows Station
+          </span>
+          <h3 className="text-xl font-extrabold text-white mt-1 tracking-tight">
+            Perform Daily Inventory Tasks
+          </h3>
+          <p className="text-xs sm:text-sm text-[#a6b2aa] mt-1 max-w-lg">
+            Record counter sales to automatically decrement stock, add incoming replenishment shipments, or draft supplier POs.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href="/staff/operations"
+            className="px-4 py-2.5 rounded-xl bg-[#3f6549] hover:bg-[#34553d] text-white font-bold text-xs transition-colors shadow-xs"
+          >
+            Process Sale Order
+          </Link>
+          <Link
+            href="/staff/operations"
+            className="px-4 py-2.5 rounded-xl bg-[#29322c] hover:bg-[#333e37] text-[#d6ded8] font-bold text-xs transition-colors border border-[#3d4a41]"
+          >
+            Enter Stock Intake
+          </Link>
+          <Link
+            href="/staff/purchases"
+            className="px-4 py-2.5 rounded-xl bg-[#29322c] hover:bg-[#333e37] text-[#e8b598] font-bold text-xs transition-colors border border-[#3d4a41]"
+          >
+            Supplier Requisition
+          </Link>
+        </div>
+      </div>
+
+      {/* Two Column Grid: Stock Overview & Recent Orders */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Quick Inventory Summary */}
-        <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-black text-[#1e1b4b] uppercase">Stock Overview</h3>
-            <Link href="/staff/inventory" className="text-xs font-black text-[#5a4bfa] uppercase tracking-widest hover:underline">
-              View All
+        {/* Stock Overview */}
+        <div className="bg-white rounded-2xl p-6 border border-[#dce2de] shadow-xs">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="text-base font-bold text-[#1a1f1c] tracking-tight">
+                Current Stock Levels
+              </h3>
+              <p className="text-xs text-[#616d65]">Quick view of items on warehouse shelves</p>
+            </div>
+            <Link
+              href="/staff/inventory"
+              className="text-xs font-semibold text-[#3f6549] hover:text-[#32523a] flex items-center gap-1"
+            >
+              <span>Full Inventory</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
-          <div className="space-y-3">
-            {products.slice(0, 4).map((p: any) => (
-              <div key={p.id} className="flex justify-between items-center py-3 border-b border-slate-50">
-                <div>
-                  <p className="font-black text-[#1e1b4b] text-sm">{p.name}</p>
-                  <p className="text-xs text-[#8b8d98] font-bold uppercase">{p.category}</p>
+
+          <div className="divide-y divide-[#edf0ee]">
+            {products.slice(0, 5).map((p: any) => {
+              const isOut = p.quantity === 0;
+              const isLow = p.quantity > 0 && p.quantity <= 5;
+
+              return (
+                <div key={p.id} className="py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-[#1a1f1c] truncate">{p.name}</p>
+                    <p className="text-[11px] text-[#717e75]">
+                      {p.category || "General"} • {p.sku || `SKU-${p.id}`}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-extrabold text-[#1a1f1c]">
+                      {p.quantity} units
+                    </span>
+                    <Badge variant={isOut ? "danger" : isLow ? "warning" : "success"} dot>
+                      {isOut ? "Out" : isLow ? "Low" : "Optimal"}
+                    </Badge>
+                  </div>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-black uppercase ${
-                  p.quantity <= 5 ? "bg-orange-50 text-orange-600" : "bg-green-50 text-emerald-500"
-                }`}>
-                  {p.quantity} units
-                </span>
-              </div>
-            ))}
-            {products.length === 0 && <p className="text-slate-400 text-center py-4">Loading...</p>}
+              );
+            })}
+
+            {products.length === 0 && (
+              <p className="text-xs text-[#828f86] py-6 text-center">No inventory items</p>
+            )}
           </div>
         </div>
 
         {/* Recent Orders */}
-        <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-black text-[#1e1b4b] uppercase">Recent Orders</h3>
-            <Link href="/staff/sales" className="text-xs font-black text-[#5a4bfa] uppercase tracking-widest hover:underline">
-              View All
+        <div className="bg-white rounded-2xl p-6 border border-[#dce2de] shadow-xs">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="text-base font-bold text-[#1a1f1c] tracking-tight">
+                Recent Orders Processed
+              </h3>
+              <p className="text-xs text-[#616d65]">Latest customer sale records</p>
+            </div>
+            <Link
+              href="/staff/orders"
+              className="text-xs font-semibold text-[#3f6549] hover:text-[#32523a] flex items-center gap-1"
+            >
+              <span>View All</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
-          <div className="space-y-3">
-            {orders.slice(-4).reverse().map((o: any) => (
-              <div key={o.id} className="flex justify-between items-center py-3 border-b border-slate-50">
+
+          <div className="divide-y divide-[#edf0ee]">
+            {orders.slice(-5).reverse().map((o: any) => (
+              <div key={o.id} className="py-3 flex items-center justify-between gap-3">
                 <div>
-                  <p className="font-black text-[#1e1b4b] text-sm">Order #{o.id}</p>
-                  <p className="text-xs text-[#8b8d98] font-bold">{new Date(o.date).toLocaleDateString()}</p>
+                  <p className="text-xs font-bold text-[#1a1f1c]">
+                    {getProductName(o.productId)}
+                  </p>
+                  <p className="text-[11px] text-[#717e75]">
+                    Order #{o.id} • {o.quantity} units •{" "}
+                    {o.date ? new Date(o.date).toLocaleDateString() : "Today"}
+                  </p>
                 </div>
-                <span className="font-black text-[#10b981]">{Number(o.totalPrice).toFixed(2)}</span>
+
+                <div className="text-right">
+                  <p className="text-xs font-extrabold text-[#385c41]">
+                    ₹{Number(o.totalPrice || 0).toFixed(2)}
+                  </p>
+                  <Badge variant="success">Completed</Badge>
+                </div>
               </div>
             ))}
+
             {orders.length === 0 && (
-              <p className="text-slate-400 text-center py-8 text-sm">No orders processed yet.</p>
+              <p className="text-xs text-[#828f86] py-6 text-center">
+                No orders recorded yet. Process a sale to see it here!
+              </p>
             )}
           </div>
-        </div>
-      </div>
-
-      <div className="bg-[#5a4bfa] rounded-[32px] p-8 text-white flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h3 className="text-2xl font-black uppercase">Quick Actions</h3>
-          <p className="text-indigo-200 mt-1 font-medium">Jump directly to your most used tools.</p>
-        </div>
-        <div className="flex flex-wrap gap-4">
-          <Link href="/staff/operations" className="px-6 py-3 bg-white text-[#5a4bfa] rounded-xl font-black text-sm hover:bg-indigo-50 transition-colors uppercase tracking-widest">
-            Process Sale
-          </Link>
-          <Link href="/staff/operations" className="px-6 py-3 bg-indigo-500 text-white rounded-xl font-black text-sm hover:bg-indigo-600 transition-colors uppercase tracking-widest">
-            Add Stock
-          </Link>
         </div>
       </div>
     </div>

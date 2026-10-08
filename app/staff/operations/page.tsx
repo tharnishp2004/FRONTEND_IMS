@@ -1,24 +1,42 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ShoppingBag, PackagePlus, FileText, ArrowRight } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import {
+  ShoppingBag,
+  PackagePlus,
+  Truck,
+  ArrowRight,
+  CheckCircle2,
+  AlertCircle,
+  Package,
+  Boxes,
+  DollarSign,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import { API_URL } from "@/app/lib/api";
+import { Badge } from "@/app/components/ui/Badge";
+import { LoadingSpinner } from "@/app/components/ui/LoadingSpinner";
 
 export default function StaffOperationsPage() {
-  const [activeTab, setActiveTab] = useState("sale");
+  const [activeTab, setActiveTab] = useState<"sale" | "entry" | "purchase">("sale");
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
+  // Sale Order Form State
   const [saleProductId, setSaleProductId] = useState("");
   const [saleQuantity, setSaleQuantity] = useState(1);
 
+  // Stock Entry Form State
   const [entryProductId, setEntryProductId] = useState("");
   const [entryQuantity, setEntryQuantity] = useState(1);
 
+  // Purchase Order Form State
   const [purchaseSupplier, setPurchaseSupplier] = useState("");
   const [purchaseProductId, setPurchaseProductId] = useState("");
-  const [purchaseQuantity, setPurchaseQuantity] = useState(1);
+  const [purchaseQuantity, setPurchaseQuantity] = useState(10);
 
   useEffect(() => {
     fetchProducts();
@@ -28,41 +46,59 @@ export default function StaffOperationsPage() {
     try {
       const res = await fetch(`${API_URL}/products`);
       const data = await res.json();
-      setProducts(data);
+      setProducts(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
+    } finally {
+      setInitialLoading(false);
     }
   };
 
-  const showMessage = (msg: string) => {
-    setMessage(msg);
-    setTimeout(() => setMessage(""), 3000);
+  const showNotification = (text: string, type: "success" | "error" = "success") => {
+    setMessage({ text, type });
+    setTimeout(() => setMessage(null), 4000);
   };
 
-  const handleProcessSale = async () => {
-    if (!saleProductId) return showMessage("Please select a product.");
-    const product = products.find(p => String(p.id) === String(saleProductId));
-    if (!product) return;
-    
-    if (product.quantity < saleQuantity) {
-      return showMessage(`Not enough stock. Only ${product.quantity} left.`);
+  const selectedSaleProduct = useMemo(
+    () => products.find((p) => String(p.id) === String(saleProductId)),
+    [products, saleProductId]
+  );
+
+  const selectedEntryProduct = useMemo(
+    () => products.find((p) => String(p.id) === String(entryProductId)),
+    [products, entryProductId]
+  );
+
+  const selectedPurchaseProduct = useMemo(
+    () => products.find((p) => String(p.id) === String(purchaseProductId)),
+    [products, purchaseProductId]
+  );
+
+  const handleProcessSale = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!saleProductId) return showNotification("Please select a product.", "error");
+    if (!selectedSaleProduct) return;
+
+    if (selectedSaleProduct.quantity < saleQuantity) {
+      return showNotification(
+        `Insufficient stock! Only ${selectedSaleProduct.quantity} units currently available.`,
+        "error"
+      );
     }
 
     setLoading(true);
     try {
-      // Step 1: Update product stock
-      const updatedQuantity = product.quantity - saleQuantity;
-      await fetch(`${API_URL}/products/${product.id}`, {
+      const updatedQuantity = selectedSaleProduct.quantity - saleQuantity;
+      await fetch(`${API_URL}/products/${selectedSaleProduct.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ quantity: updatedQuantity }),
       });
 
-      // Step 2: Record Order
       const newOrder = {
-        productId: Number(product.id),
+        productId: Number(selectedSaleProduct.id),
         quantity: Number(saleQuantity),
-        totalPrice: Number(product.price) * Number(saleQuantity),
+        totalPrice: Number(selectedSaleProduct.price) * Number(saleQuantity),
         orderStatus: "COMPLETED",
       };
       await fetch(`${API_URL}/orders`, {
@@ -71,51 +107,60 @@ export default function StaffOperationsPage() {
         body: JSON.stringify(newOrder),
       });
 
-      showMessage("Sale order processed successfully!");
+      showNotification(
+        `Sale recorded successfully! ${saleQuantity} units of ${selectedSaleProduct.name} fulfilled.`
+      );
       setSaleProductId("");
       setSaleQuantity(1);
-      fetchProducts(); // Refresh stock
-    } catch (e) {
-      showMessage("Error processing sale.");
+      fetchProducts();
+    } catch {
+      showNotification("Error communicating with backend server.", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleStockEntry = async () => {
-    if (!entryProductId) return showMessage("Please select a product.");
-    const product = products.find(p => String(p.id) === String(entryProductId));
-    if (!product) return;
+  const handleStockEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!entryProductId) return showNotification("Please select a product.", "error");
+    if (!selectedEntryProduct) return;
+    if (entryQuantity <= 0) return showNotification("Quantity must be greater than zero.", "error");
 
     setLoading(true);
     try {
-      const updatedQuantity = product.quantity + entryQuantity;
-      await fetch(`${API_URL}/products/${product.id}`, {
+      const updatedQuantity = selectedEntryProduct.quantity + entryQuantity;
+      await fetch(`${API_URL}/products/${selectedEntryProduct.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ quantity: updatedQuantity }),
       });
 
-      showMessage("Stock updated successfully!");
+      showNotification(
+        `Stock replenished! New on-hand balance for ${selectedEntryProduct.name} is ${updatedQuantity} units.`
+      );
       setEntryProductId("");
       setEntryQuantity(1);
       fetchProducts();
-    } catch (e) {
-      showMessage("Error entering stock.");
+    } catch {
+      showNotification("Error completing stock entry.", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGeneratePurchaseOrder = async () => {
-    if (!purchaseSupplier || !purchaseProductId) {
-      return showMessage("Please fill in all fields.");
+  const handleGeneratePurchaseOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!purchaseSupplier.trim() || !purchaseProductId) {
+      return showNotification("Please complete supplier name and target product.", "error");
+    }
+    if (purchaseQuantity <= 0) {
+      return showNotification("Quantity must be at least 1 unit.", "error");
     }
 
     setLoading(true);
     try {
       const newPurchase = {
-        supplier: purchaseSupplier,
+        supplier: purchaseSupplier.trim(),
         productId: Number(purchaseProductId),
         quantity: Number(purchaseQuantity),
         status: "PENDING",
@@ -127,213 +172,305 @@ export default function StaffOperationsPage() {
         body: JSON.stringify(newPurchase),
       });
 
-      showMessage("Purchase order generated successfully!");
+      showNotification(
+        `Purchase order created! Requisition for ${purchaseQuantity} units sent to ${purchaseSupplier}.`
+      );
       setPurchaseSupplier("");
       setPurchaseProductId("");
-      setPurchaseQuantity(1);
-    } catch (e) {
-      showMessage("Error generating purchase order.");
+      setPurchaseQuantity(10);
+    } catch {
+      showNotification("Error generating purchase order.", "error");
     } finally {
       setLoading(false);
     }
   };
 
+  if (initialLoading) {
+    return <LoadingSpinner label="Loading Operations Terminal..." />;
+  }
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-4xl font-black text-[#1e1b4b] uppercase tracking-tight">
-          Staff Operations
-        </h1>
-        <p className="text-slate-500 mt-2 text-lg">
-          Manage sales, stock entry, and purchase orders.
+    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-300">
+      {/* Header */}
+      <div className="bg-white rounded-2xl p-6 border border-[#dce2de] shadow-xs">
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-extrabold text-[#1a1f1c] tracking-tight">
+            Inventory Operations Hub
+          </h1>
+          <Badge variant="staff">Terminal Active</Badge>
+        </div>
+        <p className="text-xs sm:text-sm text-[#616d65] mt-1 font-medium">
+          Fast workflow interface for register counter sales, inbound warehouse shipments, and vendor procurements.
         </p>
       </div>
 
-      <div className="flex bg-white rounded-full p-2 shadow-sm border border-slate-100 overflow-hidden w-full lg:w-max mx-auto lg:mx-0">
+      {/* Tabs */}
+      <div className="flex p-1.5 bg-[#edf1ee] rounded-2xl gap-1">
         <button
           onClick={() => setActiveTab("sale")}
-          className={`flex-1 lg:flex-none flex items-center justify-center space-x-2 px-8 py-3 rounded-full text-sm font-black uppercase tracking-widest transition-all ${
-            activeTab === "sale" 
-              ? "bg-[#5a4bfa] text-white shadow-md relative z-10" 
-              : "text-[#8b8d98] hover:bg-slate-50 relative z-0"
+          className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === "sale"
+              ? "bg-white text-[#3f6549] shadow-xs"
+              : "text-[#5b675f] hover:text-[#1a1f1c]"
           }`}
         >
           <ShoppingBag className="w-4 h-4" />
-          <span>Sale Order</span>
+          <span>Process Sale Order</span>
         </button>
+
         <button
           onClick={() => setActiveTab("entry")}
-          className={`flex-1 lg:flex-none flex items-center justify-center space-x-2 px-8 py-3 rounded-full text-sm font-black uppercase tracking-widest transition-all ${
-            activeTab === "entry" 
-              ? "bg-[#5a4bfa] text-white shadow-md relative z-10" 
-              : "text-[#8b8d98] hover:bg-slate-50 relative z-0 -ml-2"
+          className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === "entry"
+              ? "bg-white text-[#2e5239] shadow-xs"
+              : "text-[#5b675f] hover:text-[#1a1f1c]"
           }`}
         >
           <PackagePlus className="w-4 h-4" />
-          <span>Stock Entry</span>
+          <span>Stock Intake Entry</span>
         </button>
+
         <button
           onClick={() => setActiveTab("purchase")}
-          className={`flex-1 lg:flex-none flex items-center justify-center space-x-2 px-8 py-3 rounded-full text-sm font-black uppercase tracking-widest transition-all ${
-            activeTab === "purchase" 
-              ? "bg-[#5a4bfa] text-white shadow-md relative z-10" 
-              : "text-[#8b8d98] hover:bg-slate-50 relative z-0 -ml-2"
+          className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === "purchase"
+              ? "bg-white text-[#b4511c] shadow-xs"
+              : "text-[#5b675f] hover:text-[#1a1f1c]"
           }`}
         >
-          <FileText className="w-4 h-4" />
-          <span>Purchase Orders</span>
+          <Truck className="w-4 h-4" />
+          <span>Purchase Order Draft</span>
         </button>
       </div>
 
+      {/* Feedback Toast */}
       {message && (
-        <div className="bg-emerald-50 text-emerald-600 border border-emerald-100 p-4 rounded-xl font-bold text-sm text-center shadow-sm">
-          {message}
+        <div
+          className={`p-4 rounded-xl border flex items-center gap-3 text-xs sm:text-sm font-semibold animate-in fade-in ${
+            message.type === "success"
+              ? "bg-[#eaf1ec] text-[#2c5237] border-[#bed3c3]"
+              : "bg-[#faece1] text-[#9c4013] border-[#eec6a9]"
+          }`}
+        >
+          {message.type === "success" ? (
+            <CheckCircle2 className="w-5 h-5 text-[#3f6549] shrink-0" />
+          ) : (
+            <AlertCircle className="w-5 h-5 text-[#c65922] shrink-0" />
+          )}
+          <span>{message.text}</span>
         </div>
       )}
 
-      <div className="bg-white rounded-[32px] p-8 lg:p-12 shadow-sm border border-slate-100">
+      {/* Main Terminal Card */}
+      <div className="bg-white rounded-2xl p-6 sm:p-8 border border-[#dce2de] shadow-xs">
+        {/* 1. SALE ORDER TAB */}
         {activeTab === "sale" && (
-          <div className="space-y-8 animate-in slide-in-from-bottom-2 fade-in duration-300">
-            <div className="space-y-3">
-              <label className="text-xs font-bold tracking-widest text-[#8b8d98] uppercase">
-                Select Product
-              </label>
-              <select 
-                value={saleProductId}
-                onChange={(e) => setSaleProductId(e.target.value)}
-                className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-6 py-4 text-[#1e1b4b] font-bold focus:outline-none focus:ring-2 focus:ring-[#5a4bfa] focus:border-transparent appearance-none"
-              >
-                <option value="">Choose a product...</option>
-                {products.map(p => (
-                  <option key={p.id} value={p.id}>{p.name} - {p.price} ({p.quantity} left)</option>
-                ))}
-              </select>
+          <form onSubmit={handleProcessSale} className="space-y-6">
+            <div>
+              <h3 className="text-lg font-bold text-[#1a1f1c]">Direct Customer Sale</h3>
+              <p className="text-xs text-[#616d65]">
+                Immediately updates available physical inventory and records transaction in Orders.
+              </p>
             </div>
 
-            <div className="space-y-3">
-              <label className="text-xs font-bold tracking-widest text-[#8b8d98] uppercase">
-                Quantity
-              </label>
-              <input 
-                type="number" 
-                min="1"
-                value={saleQuantity}
-                onChange={(e) => setSaleQuantity(parseInt(e.target.value) || 1)}
-                className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-6 py-4 text-[#1e1b4b] font-bold focus:outline-none focus:ring-2 focus:ring-[#5a4bfa] focus:border-transparent" 
-              />
-            </div>
-
-            <button 
-              onClick={handleProcessSale}
-              disabled={loading}
-              className="w-full bg-[#a78bfa] hover:bg-[#8b5cf6] disabled:opacity-50 text-white rounded-xl py-5 font-black uppercase tracking-widest flex items-center justify-center space-x-2 transition-colors mt-12 shadow-md"
-            >
-              <span>{loading ? "Processing..." : "Process Sale Order"}</span>
-              {!loading && <ArrowRight className="w-5 h-5" />}
-            </button>
-          </div>
-        )}
-
-        {activeTab === "entry" && (
-          <div className="space-y-8 animate-in slide-in-from-bottom-2 fade-in duration-300">
-            <div className="space-y-3">
-              <label className="text-xs font-bold tracking-widest text-[#8b8d98] uppercase">
-                Select Product
-              </label>
-              <select 
-                value={entryProductId}
-                onChange={(e) => setEntryProductId(e.target.value)}
-                className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-6 py-4 text-[#1e1b4b] font-bold focus:outline-none focus:ring-2 focus:ring-[#5a4bfa] focus:border-transparent appearance-none"
-              >
-                <option value="">Choose a product...</option>
-                {products.map(p => (
-                  <option key={p.id} value={p.id}>{p.name} ({p.quantity} currently)</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-3">
-              <label className="text-xs font-bold tracking-widest text-[#8b8d98] uppercase">
-                Quantity to Add
-              </label>
-              <input 
-                type="number" 
-                min="1"
-                value={entryQuantity}
-                onChange={(e) => setEntryQuantity(parseInt(e.target.value) || 1)}
-                className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-6 py-4 text-[#1e1b4b] font-bold focus:outline-none focus:ring-2 focus:ring-[#5a4bfa] focus:border-transparent" 
-              />
-            </div>
-
-            <button 
-              onClick={handleStockEntry}
-              disabled={loading}
-              className="w-full bg-[#86d3b3] hover:bg-[#68c59f] disabled:opacity-50 text-white rounded-xl py-5 font-black uppercase tracking-widest flex items-center justify-center space-x-2 transition-colors mt-12 shadow-md"
-            >
-              <span>{loading ? "Processing..." : "Complete Stock Entry"}</span>
-              {!loading && <ArrowRight className="w-5 h-5" />}
-            </button>
-          </div>
-        )}
-
-        {activeTab === "purchase" && (
-          <div className="space-y-8 animate-in slide-in-from-bottom-2 fade-in duration-300">
-            <h2 className="text-2xl font-black text-[#1e1b4b] uppercase tracking-tight mb-6">
-              Create Purchase Order
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-3">
-                <label className="text-xs font-bold tracking-widest text-[#8b8d98] uppercase">
-                  Supplier Name
-                </label>
-                <input 
-                  type="text" 
-                  value={purchaseSupplier}
-                  onChange={(e) => setPurchaseSupplier(e.target.value)}
-                  placeholder="Enter supplier..."
-                  className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-6 py-4 text-[#1e1b4b] font-bold focus:outline-none focus:ring-2 focus:ring-[#5a4bfa] focus:border-transparent" 
-                />
-              </div>
-
-              <div className="space-y-3">
-                <label className="text-xs font-bold tracking-widest text-[#8b8d98] uppercase">
-                  Product
-                </label>
-                <select 
-                  value={purchaseProductId}
-                  onChange={(e) => setPurchaseProductId(e.target.value)}
-                  className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-6 py-4 text-[#1e1b4b] font-bold focus:outline-none focus:ring-2 focus:ring-[#5a4bfa] focus:border-transparent appearance-none"
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="text-xs font-semibold text-[#343b36]">Select Product</label>
+                <select
+                  required
+                  value={saleProductId}
+                  onChange={(e) => setSaleProductId(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#f6f8f6] border border-[#dce2de] rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#4d7557] focus:bg-white cursor-pointer"
                 >
-                  <option value="">Select product...</option>
-                  {products.map(p => (
-                     <option key={p.id} value={p.id}>{p.name}</option>
+                  <option value="">Choose item to sell...</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id} disabled={p.quantity <= 0}>
+                      {p.name} — ₹{Number(p.price).toFixed(2)} ({p.quantity} units available)
+                    </option>
                   ))}
                 </select>
               </div>
 
-              <div className="space-y-3">
-                <label className="text-xs font-bold tracking-widest text-[#8b8d98] uppercase">
-                  Quantity
-                </label>
-                <input 
-                  type="number" 
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[#343b36]">Units to Sell</label>
+                <input
+                  type="number"
                   min="1"
+                  max={selectedSaleProduct ? selectedSaleProduct.quantity : undefined}
+                  required
+                  value={saleQuantity}
+                  onChange={(e) => setSaleQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  className="w-full px-4 py-3 bg-[#f6f8f6] border border-[#dce2de] rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#4d7557] focus:bg-white"
+                />
+              </div>
+
+              {/* Dynamic Calculation Card (Sage Green Theme) */}
+              {selectedSaleProduct ? (
+                <div className="p-4 rounded-xl bg-[#eaf1ec] border border-[#bed3c3] flex flex-col justify-center">
+                  <div className="flex justify-between text-xs text-[#2c5237] font-semibold mb-1">
+                    <span>Total Sale Value:</span>
+                    <span className="text-sm font-extrabold text-[#23452c]">
+                      ₹{(Number(selectedSaleProduct.price) * saleQuantity).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-[11px] text-[#4d7557]">
+                    <span>Remaining On-Hand:</span>
+                    <span className="font-bold">
+                      {Math.max(0, selectedSaleProduct.quantity - saleQuantity)} units
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-[#f6f8f6] border border-[#dce2de] flex items-center justify-center text-xs text-[#7f8b83]">
+                  Select a product to preview pricing
+                </div>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || !saleProductId}
+              className="w-full py-3.5 px-4 rounded-xl bg-[#3f6549] hover:bg-[#34553d] disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-xs shadow-[#3f6549]/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              {loading ? "Processing Sale..." : "Confirm & Record Sale Order"}
+              {!loading && <ArrowRight className="w-4 h-4" />}
+            </button>
+          </form>
+        )}
+
+        {/* 2. STOCK ENTRY TAB */}
+        {activeTab === "entry" && (
+          <form onSubmit={handleStockEntry} className="space-y-6">
+            <div>
+              <h3 className="text-lg font-bold text-[#1a1f1c]">Inbound Stock Intake</h3>
+              <p className="text-xs text-[#616d65]">
+                Log newly delivered items received at the warehouse to increase on-hand counts.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="text-xs font-semibold text-[#343b36]">Product Line</label>
+                <select
+                  required
+                  value={entryProductId}
+                  onChange={(e) => setEntryProductId(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#f6f8f6] border border-[#dce2de] rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#4d7557] focus:bg-white cursor-pointer"
+                >
+                  <option value="">Select product to restock...</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} (Currently {p.quantity} units)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[#343b36]">Quantity to Add</label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={entryQuantity}
+                  onChange={(e) => setEntryQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  className="w-full px-4 py-3 bg-[#f6f8f6] border border-[#dce2de] rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#4d7557] focus:bg-white"
+                />
+              </div>
+
+              {selectedEntryProduct ? (
+                <div className="p-4 rounded-xl bg-[#eaf1ec] border border-[#bed3c3] flex flex-col justify-center">
+                  <div className="flex justify-between text-xs text-[#2c5237] font-semibold mb-1">
+                    <span>Current Inventory:</span>
+                    <span className="font-bold">{selectedEntryProduct.quantity} units</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-[#34593e] font-bold">
+                    <span>New Total Balance:</span>
+                    <span className="text-sm font-extrabold">
+                      {selectedEntryProduct.quantity + entryQuantity} units
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-[#f6f8f6] border border-[#dce2de] flex items-center justify-center text-xs text-[#7f8b83]">
+                  Select a product to view stock balance
+                </div>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || !entryProductId}
+              className="w-full py-3.5 px-4 rounded-xl bg-[#34593e] hover:bg-[#2c4e36] disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-xs shadow-[#34593e]/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              {loading ? "Recording Intake..." : "Complete Inbound Stock Entry"}
+              {!loading && <ArrowRight className="w-4 h-4" />}
+            </button>
+          </form>
+        )}
+
+        {/* 3. PURCHASE ORDER TAB (Burnt Amber Theme) */}
+        {activeTab === "purchase" && (
+          <form onSubmit={handleGeneratePurchaseOrder} className="space-y-6">
+            <div>
+              <h3 className="text-lg font-bold text-[#1a1f1c]">Supplier Purchase Order</h3>
+              <p className="text-xs text-[#616d65]">
+                Draft an official replenishment requisition for contracted suppliers.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[#343b36]">Supplier Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Acme Components LLC"
+                  value={purchaseSupplier}
+                  onChange={(e) => setPurchaseSupplier(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#f6f8f6] border border-[#dce2de] rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#c65922] focus:bg-white"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[#343b36]">Requisition Product</label>
+                <select
+                  required
+                  value={purchaseProductId}
+                  onChange={(e) => setPurchaseProductId(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#f6f8f6] border border-[#dce2de] rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#c65922] focus:bg-white cursor-pointer"
+                >
+                  <option value="">Select item...</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[#343b36]">Quantity</label>
+                <input
+                  type="number"
+                  min="1"
+                  required
                   value={purchaseQuantity}
-                  onChange={(e) => setPurchaseQuantity(parseInt(e.target.value) || 1)}
-                  className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-6 py-4 text-[#1e1b4b] font-bold focus:outline-none focus:ring-2 focus:ring-[#5a4bfa] focus:border-transparent" 
+                  onChange={(e) => setPurchaseQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  className="w-full px-4 py-3 bg-[#f6f8f6] border border-[#dce2de] rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#c65922] focus:bg-white"
                 />
               </div>
             </div>
 
-            <button 
-              onClick={handleGeneratePurchaseOrder}
-              disabled={loading}
-              className="w-full bg-[#5a4bfa] hover:bg-[#4b3de6] disabled:opacity-50 text-white rounded-xl py-5 font-black tracking-widest flex items-center justify-center transition-colors mt-8 shadow-md"
+            <button
+              type="submit"
+              disabled={loading || !purchaseSupplier || !purchaseProductId}
+              className="w-full py-3.5 px-4 rounded-xl bg-[#c65922] hover:bg-[#a64516] disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-xs shadow-[#c65922]/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
-              {loading ? "Generating..." : "Generate Order"}
+              {loading ? "Generating Requisition..." : "Submit Purchase Order Draft"}
+              {!loading && <ArrowRight className="w-4 h-4" />}
             </button>
-          </div>
+          </form>
         )}
       </div>
     </div>

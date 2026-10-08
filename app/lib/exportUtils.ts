@@ -26,9 +26,9 @@ export function downloadCSV(filename: string, headers: string[], rows: (string |
   URL.revokeObjectURL(url);
 }
 
-// Format currency without currency symbol
+// Format currency in Indian Rupees (INR)
 const formatCurrency = (amount: number) => {
-  return amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return "INR " + amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
 // Formats timestamp for reports
@@ -51,9 +51,9 @@ export function exportInventoryReport(products: any[], format: "csv" | "pdf") {
     "Product Name",
     "SKU",
     "Category",
-    "Unit Price",
+    "Unit Price (INR)",
     "In Stock",
-    "Total Value",
+    "Total Value (INR)",
     "Status",
     "Supplier",
     "Expiry Date"
@@ -209,7 +209,7 @@ export function exportSalesReport(orders: any[], products: any[], format: "csv" 
     "Order ID",
     "Product Name",
     "Quantity Sold",
-    "Total Revenue",
+    "Total Revenue (INR)",
     "Date & Time",
     "Status"
   ];
@@ -342,18 +342,18 @@ export function exportAnalyticsReport(
       ["Generated At", new Date().toLocaleString()],
       [""],
       ["METRIC", "VALUE"],
-      ["Total Sales Revenue", totalRevenue.toFixed(2)],
+      ["Total Sales Revenue (INR)", totalRevenue.toFixed(2)],
       ["Total Completed Orders", totalSales],
-      ["Average Order Value", avgOrder.toFixed(2)],
-      ["Total Stock Valuation", stockValuation.toFixed(2)],
+      ["Average Order Value (INR)", avgOrder.toFixed(2)],
+      ["Total Stock Valuation (INR)", stockValuation.toFixed(2)],
       ["Total Products Tracked", products.length],
       [""],
       ["=== CATEGORY BREAKDOWN ==="],
-      ["Category Name", "Valuation", "Share of Stock (%)"],
+      ["Category Name", "Valuation (INR)", "Share of Stock (%)"],
       ...categories.map(c => [c.name, c.value.toFixed(2), `${c.pct}%`]),
       [""],
       ["=== RECENT ORDERS ==="],
-      ["Order ID", "Product", "Quantity", "Revenue", "Date", "Status"],
+      ["Order ID", "Product", "Quantity", "Revenue (INR)", "Date", "Status"],
       ...orders.slice(-15).reverse().map((o, i) => {
         const prod = products.find(p => String(p.id) === String(o.productId));
         return [
